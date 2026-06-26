@@ -8,14 +8,7 @@ import (
 	"runtime"
 )
 
-type RawTrack struct {
-	ID       int64 `json:"id,string"`
-	Title    string
-	Artist   string
-	Uploader string
-}
-
-func FetchLikes(profileLink string) ([]RawTrack, error) {
+func FetchLikes(profileLink string) ([]LikeEntry, error) {
 
 	ytDlp := ytdlpPath()
 
@@ -32,13 +25,13 @@ func FetchLikes(profileLink string) ([]RawTrack, error) {
 		return nil, err
 	}
 
-	var tracks []RawTrack
+	var tracks []LikeEntry
 
 	scanner := bufio.NewScanner(stdout)
 
 	for scanner.Scan() {
 
-		var track RawTrack
+		var track LikeEntry
 
 		err := json.Unmarshal([]byte(scanner.Text()), &track)
 		if err != nil {
@@ -65,4 +58,12 @@ func ytdlpPath() string {
 		return "./bin/yt-dlp/yt-dlp.exe"
 	}
 	return "./bin/yt-dlp/yt-dlp"
+}
+
+func ffmpegPath() string {
+	os := runtime.GOOS
+	if os == "windows" {
+		return "./bin/ffmpeg/ffmpeg.exe"
+	}
+	return "./bin/ffmpeg/ffmpeg"
 }

@@ -36,3 +36,16 @@ func (s *Storage) GetByID(id int64) (*LikedTrack, error) {
 	}
 	return &track, nil
 }
+
+func (s *Storage) CreateUpdateLog(log *UpdateLog) error {
+	return s.db.Create(log).Error
+}
+
+func (s *Storage) GetLastUpdateLog(tool string) (*UpdateLog, error) {
+	var log UpdateLog
+	err := s.db.Where("tool = ?", tool).Order("checked_at desc").First(&log).Error
+	if err != nil {
+		return nil, err
+	}
+	return &log, nil
+}

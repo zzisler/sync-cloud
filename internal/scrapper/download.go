@@ -1,14 +1,18 @@
 package scrapper
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var filenameSanitizer = strings.NewReplacer(
@@ -23,7 +27,7 @@ var filenameSanitizer = strings.NewReplacer(
 	"|", "_",
 )
 
-func DownloadAndTag(track *Track, musicDir, proxyURL string) (string, error) {
+func DownloadAndTag(track *Track, musicDir, proxyURL string, downloadTimeout time.Duration) (string, error) {
 
 	client, err := newHttpClient(proxyURL)
 	if err != nil {
@@ -49,9 +53,19 @@ func DownloadAndTag(track *Track, musicDir, proxyURL string) (string, error) {
 
 	tempFile.Close()
 
-	ytDlpCmd := exec.Command(ytdlpPath(), "-o", "-", track.URL)
+	ctx, cancel := context.WithTimeout(context.Background(), downloadTimeout)
+	defer cancel()
 
-	ffmpegCmd := exec.Command(ffmpegPath(),
+	args := []string{"-o", "-"}
+	if proxyURL != "" {
+		args = append(args, "--proxy", proxyURL)
+	}
+	args = append(args, track.URL)
+
+	ytDlpCmd := exec.CommandContext(ctx, ytdlpPath(), args...)
+
+	ffmpegCmd := exec.CommandContext(ctx, ffmpegPath(),
+		"-y",
 		"-i", "-",
 		"-i", tempFile.Name(),
 		"-map", "0:a", "-map", "1:0",
@@ -63,6 +77,14 @@ func DownloadAndTag(track *Track, musicDir, proxyURL string) (string, error) {
 		"-disposition:1", "attached_pic",
 		outputPath,
 	)
+
+	var ytDlpStderr bytes.Buffer
+	ytDlpCmd.Stderr = &ytDlpStderr
+
+	var ffmpegStderr bytes.Buffer
+	ffmpegCmd.Stderr = &ffmpegStderr
+
+	start := time.Now()
 
 	pipe, err := ytDlpCmd.StdoutPipe()
 	if err != nil {
@@ -77,12 +99,35 @@ func DownloadAndTag(track *Track, musicDir, proxyURL string) (string, error) {
 		return "", fmt.Errorf("failed to start yt-dlp: %w", err)
 	}
 
-	if err := ytDlpCmd.Wait(); err != nil {
-		return "", fmt.Errorf("yt-dlp failed: %w", err)
+	ytDlpErrCh := make(chan error, 1)
+	ffmpegErrCh := make(chan error, 1)
+
+	go func() {
+		ytDlpErrCh <- ytDlpCmd.Wait()
+	}()
+
+	go func() {
+		ffmpegErrCh <- ffmpegCmd.Wait()
+	}()
+
+	ytDlpErr := <-ytDlpErrCh
+	ffmpegErr := <-ffmpegErrCh
+
+	if ffmpegErr != nil {
+		return "", fmt.Errorf("ffmpeg failed: %w, stderr: %s", err, ffmpegStderr.String())
 	}
-	if err := ffmpegCmd.Wait(); err != nil {
-		return "", fmt.Errorf("ffmpeg failed: %w", err)
+	if ytDlpErr != nil {
+		return "", fmt.Errorf("yt-dlp failed: %w, stderr: %s", err, ytDlpStderr.String())
 	}
+
+	// if err := ytDlpCmd.Wait(); err != nil {
+	// 	return "", fmt.Errorf("yt-dlp failed: %w, stderr: %s", err, ytDlpStderr.String())
+	// }
+	// if err := ffmpegCmd.Wait(); err != nil {
+	// 	return "", fmt.Errorf("ffmpeg failed: %w, stderr: %s", err, ffmpegStderr.String())
+	// }
+
+	log.Printf("download and transcode took %s", time.Since(start))
 
 	return outputPath, nil
 }

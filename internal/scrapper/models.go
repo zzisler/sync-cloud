@@ -5,6 +5,7 @@ type LikeEntry struct {
 	Title    string `json:"title"`
 	URL      string `json:"webpage_url"`
 	FilePath string
+	ProxyURL string
 }
 
 type metadata struct {

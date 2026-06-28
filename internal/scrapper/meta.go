@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"os/exec"
 	"strconv"
 )
 
-func GetMeta(url string) (*Track, error) {
+func GetMeta(url, proxyURL string) (*Track, error) {
 
 	// переменная с структурой метаданных
 	var meta metadata
@@ -17,10 +18,19 @@ func GetMeta(url string) (*Track, error) {
 	// путь до бинарника yt-dlp
 	ytDlp := ytdlpPath()
 
-	log.Printf("fetching metadata: %s", url)
+	// генерируем случайное число от 1.5 до 3.5 для запроса yt-dlp
+	randomInt := fmt.Sprintf("%.2f", 1.5+rand.Float64()*(3.5-1.5))
+
+	log.Printf("%ss | fetching metadata: %s", randomInt, url)
+
+	args := []string{"--sleep-requests", randomInt, "--print", "%(.{id,title,artist,uploader,thumbnails})j"}
+	if proxyURL != "" {
+		args = append(args, "--proxy", proxyURL)
+	}
+	args = append(args, url)
 
 	// запускаем бинарник и выводим нужные метаданные о треке по ссылке
-	cmd := exec.Command(ytDlp, "--sleep-request", "1", "--print", "%(.{id,title,artist,uploader,thumbnails})j", url)
+	cmd := exec.Command(ytDlp, args...)
 
 	// тут я не помню что было, но вроде мы создаем переменную для байтов и пишем вывод сюда
 	var stderr bytes.Buffer

@@ -2,6 +2,7 @@ package sync
 
 import (
 	"log"
+	"math/rand"
 	"os"
 	"sync-cloud/internal/scrapper"
 	"sync-cloud/internal/storage"
@@ -10,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func Run(db *gorm.DB, profileLink, musicDir, proxyURL string) error {
+func Run(db *gorm.DB, profileLink, musicDir, proxyURL string, downloadTimeout time.Duration) error {
 
 	log.Println("=== sync-cloud: starting sync ===")
 
@@ -18,7 +19,7 @@ func Run(db *gorm.DB, profileLink, musicDir, proxyURL string) error {
 
 	log.Println("fetching likes from SoundCloud...")
 
-	likesList, err := scrapper.FetchLikes(profileLink)
+	likesList, err := scrapper.FetchLikes(profileLink, proxyURL)
 	if err != nil {
 		log.Printf("failed get track list: %s", err)
 		return err
@@ -58,15 +59,16 @@ func Run(db *gorm.DB, profileLink, musicDir, proxyURL string) error {
 		if !ok {
 			newCount++
 
-			time.Sleep(2 * time.Second)
+			randomDelay := float64(0.5 + rand.Float64()*(1.5-0.5))
+			time.Sleep(time.Duration(randomDelay * float64(time.Second)))
 
-			data, err := scrapper.GetMeta(track.URL)
+			data, err := scrapper.GetMeta(track.URL, proxyURL)
 			if err != nil {
 				log.Printf("[error %d] %s get error: %s", newCount, track.Title, err)
 				continue
 			}
 
-			outputPath, err := scrapper.DownloadAndTag(data, musicDir, proxyURL)
+			outputPath, err := scrapper.DownloadAndTag(data, musicDir, proxyURL, downloadTimeout)
 			if err != nil {
 				log.Printf("[error %d] %s failed to download: %s", newCount, data.Title, err)
 				continue

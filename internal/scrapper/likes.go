@@ -8,11 +8,17 @@ import (
 	"runtime"
 )
 
-func FetchLikes(profileLink string) ([]LikeEntry, error) {
+func FetchLikes(profileLink, proxyURL string) ([]LikeEntry, error) {
 
 	ytDlp := ytdlpPath()
 
-	cmd := exec.Command(ytDlp, "--flat-playlist", "-j", profileLink)
+	args := []string{"--flat-playlist", "-j"}
+	if proxyURL != "" {
+		args = append(args, "--proxy", proxyURL)
+	}
+	args = append(args, profileLink)
+
+	cmd := exec.Command(ytDlp, args...)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -55,15 +61,15 @@ func FetchLikes(profileLink string) ([]LikeEntry, error) {
 func ytdlpPath() string {
 	os := runtime.GOOS
 	if os == "windows" {
-		return "./bin/yt-dlp/yt-dlp.exe"
+		return "./bin/yt-dlp/win/yt-dlp.exe"
 	}
-	return "./bin/yt-dlp/yt-dlp"
+	return "./bin/yt-dlp/linux/yt-dlp"
 }
 
 func ffmpegPath() string {
 	os := runtime.GOOS
 	if os == "windows" {
-		return "./bin/ffmpeg/ffmpeg.exe"
+		return "./bin/ffmpeg/win/ffmpeg.exe"
 	}
-	return "./bin/ffmpeg/ffmpeg"
+	return "./bin/ffmpeg/linux/ffmpeg"
 }

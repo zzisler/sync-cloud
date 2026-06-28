@@ -4,15 +4,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	ProfileURL string
-	DBPath     string
-	MusicDir   string
-	ProxyURL   string
+	ProfileURL      string
+	DBPath          string
+	MusicDir        string
+	ProxyURL        string
+	DownloadTimeout time.Duration
 }
 
 func Load() (*Config, error) {
@@ -43,11 +46,20 @@ func Load() (*Config, error) {
 
 	proxyURL := os.Getenv("PROXY_URL")
 
+	timeoutMinutes := os.Getenv("DOWNLOAD_TIMEOUT_MINUTES")
+	minutes := 5
+	if timeoutMinutes != "" {
+		if parsed, err := strconv.Atoi(timeoutMinutes); err == nil {
+			minutes = parsed
+		}
+	}
+
 	return &Config{
-		ProfileURL: profileURL,
-		DBPath:     dbPath,
-		MusicDir:   musicDir,
-		ProxyURL:   proxyURL,
+		ProfileURL:      profileURL,
+		DBPath:          dbPath,
+		MusicDir:        musicDir,
+		ProxyURL:        proxyURL,
+		DownloadTimeout: time.Duration(minutes) * time.Minute,
 	}, nil
 
 }

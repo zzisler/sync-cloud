@@ -11,3 +11,12 @@ type LikedTrack struct {
 	FilePath string // полный путь файла на диске
 	LikedAt  time.Time
 }
+
+type UpdateLog struct {
+	ID         int64 `gorm:"primaryKey"`
+	CheckedAt  time.Time
+	Tool       string
+	OldVersion string
+	NewVersion string
+	Updated    bool
+}
